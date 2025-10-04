@@ -91,6 +91,12 @@ class BookService:
         await self.session.delete(book)
 
     async def borrow_book(self, serial_number: str, borrower_card: str) -> BookDTO:
+        book = await self.get_by_serial(serial_number, for_update=True)
+        if book.is_borrowed:
+            raise BookAlreadyBorrowed(
+                f"Book {book.serial_number} already borrowed by {book.borrowed_by}"
+            )
+
         try:
             card = validate_card(borrower_card)
         except ValueError as e:
@@ -100,11 +106,6 @@ class BookService:
         if not user:
             raise UserNotFound(f"User with card number {card} not found")
 
-        book = await self.get_by_serial(serial_number, for_update=True)
-        if book.is_borrowed:
-            raise BookAlreadyBorrowed(
-                f"Book {book.serial_number} already borrowed by {book.borrowed_by}"
-            )
         book.is_borrowed = True
         book.borrowed_by = card
         book.borrowed_at = utcnow()

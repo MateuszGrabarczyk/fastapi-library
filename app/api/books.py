@@ -83,6 +83,8 @@ async def delete_book(
         raise HTTPException(status_code=404, detail=str(e))
     except BookAlreadyBorrowed as e:
         raise HTTPException(status_code=409, detail=str(e))
+    except InvalidSerialNumber as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{serial_number}/borrow", response_model=BookOut)
@@ -103,6 +105,8 @@ async def borrow_book(
         raise HTTPException(status_code=409, detail=str(e))
     except UserNotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except InvalidSerialNumber as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{serial_number}/return", response_model=BookOut)
@@ -115,6 +119,8 @@ async def return_book(serial_number: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail=str(e))
     except BookNotBorrowed as e:
         raise HTTPException(status_code=409, detail=str(e))
+    except InvalidSerialNumber as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.patch("/{serial_number}/status", response_model=BookOut)
@@ -140,3 +146,5 @@ async def set_status(
         raise HTTPException(status_code=400, detail=str(e))
     except UserNotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except InvalidSerialNumber as e:
+        raise HTTPException(status_code=400, detail=str(e))
