@@ -15,6 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY alembic.ini .
 COPY alembic ./alembic
 COPY app ./app
+COPY tests ./tests
+COPY pytest.ini .
 COPY entrypoint.sh .
 
 RUN useradd -m appuser

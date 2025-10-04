@@ -3,9 +3,6 @@ __pycache__/
 *.pyo
 *.pyd
 .venv/
-.env
 .git/
-tests/
 htmlcov/
-pytest.xml
 coverage.xml

@@ -24,7 +24,7 @@ async def _create_book(client, serial="123456", title="T", author="A"):
     )
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_create_and_list_books(client):
     response = await _create_book(client, "123456", "Clean Code", "Robert C. Martin")
     assert response.status_code == 201
@@ -42,20 +42,20 @@ async def test_create_and_list_books(client):
     }.issubset(data[0].keys())
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_create_book_duplicate_serial(client):
     assert (await _create_book(client, "222222")).status_code == 201
     response = await _create_book(client, "222222")
     assert response.status_code == 409
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_create_book_invalid_serial(client):
     response = await _create_book(client, "12AB56")
     assert response.status_code == 422
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_list_filters_and_pagination(client):
     for serial_number in ("111111", "222222", "333333"):
         assert (await _create_book(client, serial_number)).status_code == 201
@@ -76,7 +76,7 @@ async def test_list_filters_and_pagination(client):
     assert len(items) == 1 and items[0]["serial_number"] == "222222"
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_borrow_and_return_happy_path(client):
     assert (await _create_book(client, "123457")).status_code == 201
     response = await client.post(
@@ -99,7 +99,7 @@ async def test_borrow_and_return_happy_path(client):
     )
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_borrow_already_borrowed(client):
     assert (await _create_book(client, "123458")).status_code == 201
     assert (
@@ -111,14 +111,14 @@ async def test_borrow_already_borrowed(client):
     assert response.status_code == 409
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_return_not_borrowed(client):
     assert (await _create_book(client, "123459")).status_code == 201
     response = await client.post("/books/123459/return")
     assert response.status_code == 409
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_delete_borrowed_requires_flag(client):
     assert (await _create_book(client, "123460")).status_code == 201
     assert (
@@ -133,14 +133,14 @@ async def test_delete_borrowed_requires_flag(client):
     assert "123460" not in serials
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_set_status_requires_card_when_true(client):
     assert (await _create_book(client, "123461")).status_code == 201
     response = await client.patch("/books/123461/status", json={"is_borrowed": True})
     assert response.status_code == 400
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_set_status_borrow_and_free(client):
     assert (await _create_book(client, "123462")).status_code == 201
     response = await client.patch(
