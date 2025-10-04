@@ -1,8 +1,8 @@
 """add user and book models
 
-Revision ID: 23171a074b26
+Revision ID: 9b63e8231283
 Revises: 
-Create Date: 2025-10-04 04:57:57.378917
+Create Date: 2025-10-04 05:35:00.542240
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '23171a074b26'
+revision: str = '9b63e8231283'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -27,8 +27,7 @@ def upgrade() -> None:
     sa.Column('last_name', sa.String(length=50), nullable=False),
     sa.Column('card_number', sa.CHAR(length=6), nullable=False),
     sa.CheckConstraint("card_number ~ '^[0-9]{6}$'", name='ck_users_card_six_digits'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('id')
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_users_card_number'), 'users', ['card_number'], unique=True)
     op.create_table('books',
@@ -44,8 +43,7 @@ def upgrade() -> None:
     sa.CheckConstraint("serial_number ~ '^[0-9]{6}$'", name='ck_books_serial_six_digits'),
     sa.CheckConstraint('(is_borrowed AND borrowed_at IS NOT NULL AND borrowed_by IS NOT NULL) OR (NOT is_borrowed AND borrowed_at IS NULL AND borrowed_by IS NULL)', name='ck_books_borrow_state_consistent'),
     sa.ForeignKeyConstraint(['borrowed_by'], ['users.card_number'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('id')
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_books_borrowed_by'), 'books', ['borrowed_by'], unique=False)
     op.create_index(op.f('ix_books_serial_number'), 'books', ['serial_number'], unique=True)

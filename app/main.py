@@ -1,12 +1,6 @@
-from fastapi import FastAPI, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from app.db import get_db
-from .models.user import User
+from fastapi import FastAPI
+from app.api.books import router as books_router
 
-app = FastAPI()
+app = FastAPI(title="Library API")
 
-@app.get("/users")
-async def list_users(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User))
-    return result.scalars().all()
+app.include_router(books_router)
