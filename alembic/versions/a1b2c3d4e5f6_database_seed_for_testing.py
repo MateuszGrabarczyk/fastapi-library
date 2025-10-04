@@ -53,4 +53,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     conn = op.get_bind()
-    conn.execute(sa.text("DELETE FROM users WHERE card_number IN ('111111','222222','333333')"))
+    conn.execute(
+        sa.text("DELETE FROM users WHERE card_number IN ('111111','222222','333333')")
+    )

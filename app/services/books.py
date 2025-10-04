@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import Book
+from app.models import Book, User
 from app.dataclasses.book_dto import BookDTO
 from app.exceptions import (
     BookAlreadyBorrowed,
@@ -12,6 +12,7 @@ from app.exceptions import (
     DuplicateSerialNumber,
     InvalidCardNumber,
     InvalidSerialNumber,
+    UserNotFound,
 )
 from app.utils import validate_card, validate_serial, utcnow
 
@@ -20,9 +21,12 @@ class BookService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def get_by_serial(
-        self, serial_number: str, *, for_update: bool = False
-    ) -> Book:
+    async def _get_user_by_card(self, card_number: str):
+        stmt = select(User).where(User.card_number == card_number)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_by_serial(self, serial_number: str, for_update: bool = False) -> Book:
         try:
             serial = validate_serial(serial_number)
         except ValueError as e:
@@ -38,7 +42,6 @@ class BookService:
 
     async def list_books(
         self,
-        *,
         is_borrowed: Optional[bool] = None,
         borrower_card: Optional[str] = None,
         offset: int = 0,
@@ -53,12 +56,16 @@ class BookService:
             except ValueError as e:
                 raise InvalidCardNumber(str(e)) from e
             stmt = stmt.where(Book.borrowed_by == card)
-        stmt = stmt.offset(max(offset, 0)).limit(max(1, min(limit, 500)))
+        stmt = (
+            stmt.order_by(Book.created_at.desc())
+            .offset(max(offset, 0))
+            .limit(max(1, min(limit, 500)))
+        )
         result = await self.session.execute(stmt)
         rows = result.scalars().all()
         return [BookDTO.from_model(b) for b in rows]
 
-    async def add_book(self, *, serial_number: str, title: str, author: str) -> BookDTO:
+    async def add_book(self, serial_number: str, title: str, author: str) -> BookDTO:
         try:
             serial = validate_serial(serial_number)
         except ValueError as e:
@@ -74,7 +81,7 @@ class BookService:
         return BookDTO.from_model(book)
 
     async def delete_book(
-        self, *, serial_number: str, allow_if_borrowed: bool = False
+        self, serial_number: str, allow_if_borrowed: bool = False
     ) -> None:
         book = await self.get_by_serial(serial_number, for_update=True)
         if book.is_borrowed and not allow_if_borrowed:
@@ -83,11 +90,16 @@ class BookService:
             )
         await self.session.delete(book)
 
-    async def borrow_book(self, *, serial_number: str, borrower_card: str) -> BookDTO:
+    async def borrow_book(self, serial_number: str, borrower_card: str) -> BookDTO:
         try:
             card = validate_card(borrower_card)
         except ValueError as e:
             raise InvalidCardNumber(str(e)) from e
+
+        user = await self._get_user_by_card(card)
+        if not user:
+            raise UserNotFound(f"User with card number {card} not found")
+
         book = await self.get_by_serial(serial_number, for_update=True)
         if book.is_borrowed:
             raise BookAlreadyBorrowed(
@@ -99,7 +111,7 @@ class BookService:
         self.session.add(book)
         return BookDTO.from_model(book)
 
-    async def return_book(self, *, serial_number: str) -> BookDTO:
+    async def return_book(self, serial_number: str) -> BookDTO:
         book = await self.get_by_serial(serial_number, for_update=True)
         if not book.is_borrowed:
             raise BookNotBorrowed(
@@ -113,7 +125,6 @@ class BookService:
 
     async def set_status(
         self,
-        *,
         serial_number: str,
         is_borrowed: bool,
         borrower_card: Optional[str] = None,
@@ -125,6 +136,11 @@ class BookService:
                 card = validate_card(borrower_card or "")
             except ValueError as e:
                 raise InvalidCardNumber(str(e)) from e
+
+            user = await self._get_user_by_card(card)
+            if not user:
+                raise UserNotFound(f"User with card number {card} not found")
+
             book.is_borrowed = True
             book.borrowed_by = card
             book.borrowed_at = when or utcnow()

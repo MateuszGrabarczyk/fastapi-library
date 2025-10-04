@@ -53,7 +53,7 @@ def upgrade() -> None:
             name="ck_books_borrow_state_consistent",
         ),
         sa.ForeignKeyConstraint(
-            ["borrowed_by"], ["users.card_number"], ondelete="SET NULL"
+            ["borrowed_by"], ["users.card_number"], ondelete="RESTRICT"
         ),
         sa.PrimaryKeyConstraint("id"),
     )

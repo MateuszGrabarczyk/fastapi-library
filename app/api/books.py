@@ -12,6 +12,7 @@ from app.exceptions import (
     DuplicateSerialNumber,
     InvalidCardNumber,
     InvalidSerialNumber,
+    UserNotFound,
 )
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -100,6 +101,8 @@ async def borrow_book(
         raise HTTPException(status_code=400, detail=str(e))
     except BookAlreadyBorrowed as e:
         raise HTTPException(status_code=409, detail=str(e))
+    except UserNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.post("/{serial_number}/return", response_model=BookOut)
@@ -135,3 +138,5 @@ async def set_status(
         raise HTTPException(status_code=404, detail=str(e))
     except InvalidCardNumber as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except UserNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))

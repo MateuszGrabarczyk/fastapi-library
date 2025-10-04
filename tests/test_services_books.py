@@ -9,6 +9,7 @@ from app.exceptions import (
     DuplicateSerialNumber,
     InvalidCardNumber,
     InvalidSerialNumber,
+    UserNotFound,
 )
 
 
@@ -193,3 +194,13 @@ async def test_service_transaction_rollback(session: AsyncSession):
     assert book.is_borrowed is False
     assert book.borrowed_by is None
     assert book.borrowed_at is None
+
+
+@pytest.mark.asyncio
+async def test_borrow_nonexistent_user_raises(session: AsyncSession):
+    service = BookService(session)
+    await add_sample_book(service, "999999")
+    await session.commit()
+
+    with pytest.raises(UserNotFound):
+        await service.borrow_book(serial_number="999999", borrower_card="666666")

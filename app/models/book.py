@@ -33,7 +33,7 @@ class Book(Base):
 
     borrowed_by: Mapped[Optional[str]] = mapped_column(
         CHAR(6),
-        ForeignKey("users.card_number", ondelete="SET NULL"),
+        ForeignKey("users.card_number", ondelete="RESTRICT"),
         nullable=True,
         index=True,
     )

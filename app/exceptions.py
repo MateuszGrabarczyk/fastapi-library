@@ -24,3 +24,7 @@ class BookAlreadyBorrowed(BookError):
 
 class BookNotBorrowed(BookError):
     pass
+
+
+class UserNotFound(Exception):
+    pass
