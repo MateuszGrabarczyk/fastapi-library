@@ -11,8 +11,10 @@ from app.exceptions import (
     InvalidSerialNumber,
 )
 
+
 async def add_sample_book(service: BookService, serial="123456", title="T", author="A"):
     return await service.add_book(serial_number=serial, title=title, author=author)
+
 
 @pytest.mark.asyncio
 async def test_add_and_get_book(session: AsyncSession):
@@ -27,6 +29,7 @@ async def test_add_and_get_book(session: AsyncSession):
     assert book.is_borrowed is False
     assert dto.serial_number == "123456"
 
+
 @pytest.mark.asyncio
 async def test_add_book_duplicate_serial_raises(session: AsyncSession):
     service = BookService(session)
@@ -36,17 +39,20 @@ async def test_add_book_duplicate_serial_raises(session: AsyncSession):
     with pytest.raises(DuplicateSerialNumber):
         await add_sample_book(service, "123456")
 
+
 @pytest.mark.asyncio
 async def test_get_by_serial_invalid_format_raises(session: AsyncSession):
     service = BookService(session)
     with pytest.raises(InvalidSerialNumber):
         await service.get_by_serial("12AB56")
 
+
 @pytest.mark.asyncio
 async def test_get_by_serial_not_found_raises(session: AsyncSession):
     service = BookService(session)
     with pytest.raises(BookNotFound):
         await service.get_by_serial("333333")
+
 
 @pytest.mark.asyncio
 async def test_list_books_filters(session: AsyncSession):
@@ -71,13 +77,16 @@ async def test_list_books_filters(session: AsyncSession):
     by_card = await service.list_books(borrower_card="333333")
     assert len(by_card) == 1 and by_card[0].serial_number == "222222"
 
+
 @pytest.mark.asyncio
 async def test_borrow_and_return_happy_path(session: AsyncSession):
     service = BookService(session)
     await add_sample_book(service, "123456")
     await session.commit()
 
-    dto_borrowed = await service.borrow_book(serial_number="123456", borrower_card="111111")
+    dto_borrowed = await service.borrow_book(
+        serial_number="123456", borrower_card="111111"
+    )
     await session.commit()
 
     assert dto_borrowed.is_borrowed is True
@@ -91,6 +100,7 @@ async def test_borrow_and_return_happy_path(session: AsyncSession):
     assert dto_returned.borrowed_by is None
     assert dto_returned.borrowed_at is None
 
+
 @pytest.mark.asyncio
 async def test_borrow_already_borrowed_raises(session: AsyncSession):
     service = BookService(session)
@@ -103,6 +113,7 @@ async def test_borrow_already_borrowed_raises(session: AsyncSession):
     with pytest.raises(BookAlreadyBorrowed):
         await service.borrow_book(serial_number="123456", borrower_card="222222")
 
+
 @pytest.mark.asyncio
 async def test_return_not_borrowed_raises(session: AsyncSession):
     service = BookService(session)
@@ -111,6 +122,7 @@ async def test_return_not_borrowed_raises(session: AsyncSession):
 
     with pytest.raises(BookNotBorrowed):
         await service.return_book(serial_number="123456")
+
 
 @pytest.mark.asyncio
 async def test_delete_borrowed_requires_flag(session: AsyncSession):
@@ -130,6 +142,7 @@ async def test_delete_borrowed_requires_flag(session: AsyncSession):
     with pytest.raises(BookNotFound):
         await service.get_by_serial("123456")
 
+
 @pytest.mark.asyncio
 async def test_set_status_requires_card_when_borrowed(session: AsyncSession):
     service = BookService(session)
@@ -137,7 +150,10 @@ async def test_set_status_requires_card_when_borrowed(session: AsyncSession):
     await session.commit()
 
     with pytest.raises(InvalidCardNumber):
-        await service.set_status(serial_number="123456", is_borrowed=True, borrower_card=None)
+        await service.set_status(
+            serial_number="123456", is_borrowed=True, borrower_card=None
+        )
+
 
 @pytest.mark.asyncio
 async def test_set_status_borrowed_and_free(session: AsyncSession):
@@ -145,7 +161,9 @@ async def test_set_status_borrowed_and_free(session: AsyncSession):
     await add_sample_book(service, "123456")
     await session.commit()
 
-    dto1 = await service.set_status(serial_number="123456", is_borrowed=True, borrower_card="333333")
+    dto1 = await service.set_status(
+        serial_number="123456", is_borrowed=True, borrower_card="333333"
+    )
     await session.commit()
     assert dto1.is_borrowed is True
     assert dto1.borrowed_by == "333333"

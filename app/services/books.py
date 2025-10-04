@@ -22,7 +22,9 @@ class BookService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def get_by_serial(self, serial_number: str, *, for_update: bool = False) -> Book:
+    async def get_by_serial(
+        self, serial_number: str, *, for_update: bool = False
+    ) -> Book:
         try:
             serial = validate_serial(serial_number)
         except ValueError as e:
@@ -74,10 +76,14 @@ class BookService:
             await self.session.flush()
         except IntegrityError as e:
             await self.session.rollback()
-            raise DuplicateSerialNumber(f"Book with serial {serial} already exists") from e
+            raise DuplicateSerialNumber(
+                f"Book with serial {serial} already exists"
+            ) from e
         return BookDTO.from_model(book)
 
-    async def delete_book(self, *, serial_number: str, allow_if_borrowed: bool = False) -> None:
+    async def delete_book(
+        self, *, serial_number: str, allow_if_borrowed: bool = False
+    ) -> None:
         book = await self.get_by_serial(serial_number, for_update=True)
         if book.is_borrowed and not allow_if_borrowed:
             raise BookAlreadyBorrowed(
@@ -106,7 +112,9 @@ class BookService:
     async def return_book(self, *, serial_number: str) -> BookDTO:
         book = await self.get_by_serial(serial_number, for_update=True)
         if not book.is_borrowed:
-            raise BookNotBorrowed(f"Book {book.serial_number} is not currently borrowed")
+            raise BookNotBorrowed(
+                f"Book {book.serial_number} is not currently borrowed"
+            )
 
         book.is_borrowed = False
         book.borrowed_by = None

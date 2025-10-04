@@ -11,12 +11,16 @@ from app.db import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False
+    )
     first_name: Mapped[str] = mapped_column(String(50), nullable=False)
     last_name: Mapped[str] = mapped_column(String(50), nullable=False)
-    card_number: Mapped[str] = mapped_column(CHAR(6), unique=True, nullable=False, index=True)
+    card_number: Mapped[str] = mapped_column(
+        CHAR(6), unique=True, nullable=False, index=True
+    )
 
-    borrowed_books: Mapped[List["Book"]] = relationship( # type: ignore
+    borrowed_books: Mapped[List["Book"]] = relationship(  # type: ignore
         "Book",
         back_populates="borrower",
         primaryjoin="User.card_number == Book.borrowed_by",

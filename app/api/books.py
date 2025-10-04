@@ -76,7 +76,9 @@ async def delete_book(
 ):
     svc = BookService(db)
     try:
-        await svc.delete_book(serial_number=serial_number, allow_if_borrowed=allow_if_borrowed)
+        await svc.delete_book(
+            serial_number=serial_number, allow_if_borrowed=allow_if_borrowed
+        )
         await db.commit()
     except BookNotFound as e:
         await db.rollback()
@@ -87,10 +89,14 @@ async def delete_book(
 
 
 @router.post("/{serial_number}/borrow", response_model=BookOut)
-async def borrow_book(serial_number: str, body: BorrowRequest, db: AsyncSession = Depends(get_db)):
+async def borrow_book(
+    serial_number: str, body: BorrowRequest, db: AsyncSession = Depends(get_db)
+):
     svc = BookService(db)
     try:
-        dto = await svc.borrow_book(serial_number=serial_number, borrower_card=body.borrower_card)
+        dto = await svc.borrow_book(
+            serial_number=serial_number, borrower_card=body.borrower_card
+        )
         await db.commit()
         return dto_to_out(dto)
     except BookNotFound as e:
@@ -120,9 +126,13 @@ async def return_book(serial_number: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/{serial_number}/status", response_model=BookOut)
-async def set_status(serial_number: str, body: SetStatusRequest, db: AsyncSession = Depends(get_db)):
+async def set_status(
+    serial_number: str, body: SetStatusRequest, db: AsyncSession = Depends(get_db)
+):
     if body.is_borrowed and not body.borrower_card:
-        raise HTTPException(status_code=400, detail="borrower_card is required when is_borrowed is true")
+        raise HTTPException(
+            status_code=400, detail="borrower_card is required when is_borrowed is true"
+        )
     svc = BookService(db)
     try:
         dto = await svc.set_status(

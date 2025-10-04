@@ -19,13 +19,17 @@ class Book(Base):
         nullable=False,
     )
 
-    serial_number: Mapped[str] = mapped_column(CHAR(6), nullable=False, unique=True, index=True)
+    serial_number: Mapped[str] = mapped_column(
+        CHAR(6), nullable=False, unique=True, index=True
+    )
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     author: Mapped[str] = mapped_column(String(255), nullable=False)
 
     is_borrowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    borrowed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    borrowed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     borrowed_by: Mapped[Optional[str]] = mapped_column(
         CHAR(6),
@@ -34,7 +38,7 @@ class Book(Base):
         index=True,
     )
 
-    borrower: Mapped[Optional["User"]] = relationship( # type: ignore
+    borrower: Mapped[Optional["User"]] = relationship(  # type: ignore
         "User",
         back_populates="borrowed_books",
         primaryjoin="User.card_number == Book.borrowed_by",
@@ -55,7 +59,9 @@ class Book(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("serial_number ~ '^[0-9]{6}$'", name="ck_books_serial_six_digits"),
+        CheckConstraint(
+            "serial_number ~ '^[0-9]{6}$'", name="ck_books_serial_six_digits"
+        ),
         CheckConstraint(
             "(is_borrowed AND borrowed_at IS NOT NULL AND borrowed_by IS NOT NULL) "
             "OR (NOT is_borrowed AND borrowed_at IS NULL AND borrowed_by IS NULL)",

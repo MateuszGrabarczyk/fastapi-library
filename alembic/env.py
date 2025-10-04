@@ -15,8 +15,10 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+
 def get_url() -> str:
     return settings.database_url_psycopg
+
 
 def run_migrations_offline() -> None:
     url = get_url()
@@ -31,10 +33,12 @@ def run_migrations_offline() -> None:
     with context.begin_transaction():
         context.run_migrations()
 
+
 def run_migrations_online() -> None:
     connectable = context.config.attributes.get("connection", None)
     if connectable is None:
         from sqlalchemy import create_engine
+
         connectable = create_engine(get_url(), poolclass=pool.NullPool, future=True)
 
     with connectable.connect() as connection:
@@ -46,6 +50,7 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()
