@@ -1,8 +1,6 @@
 from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.db import get_db
 from app.dataclasses.book_dto import BookDTO
 from app.schemas.book import BookCreate, BookOut, BorrowRequest, SetStatusRequest
@@ -40,13 +38,16 @@ async def list_books(
     db: AsyncSession = Depends(get_db),
 ):
     svc = BookService(db)
-    items = await svc.list_books(
-        is_borrowed=is_borrowed,
-        borrower_card=borrower_card,
-        offset=offset,
-        limit=limit,
-    )
-    return [dto_to_out(x) for x in items]
+    try:
+        items = await svc.list_books(
+            is_borrowed=is_borrowed,
+            borrower_card=borrower_card,
+            offset=offset,
+            limit=limit,
+        )
+        return [dto_to_out(x) for x in items]
+    except InvalidCardNumber as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("", response_model=BookOut, status_code=status.HTTP_201_CREATED)
@@ -58,13 +59,10 @@ async def create_book(payload: BookCreate, db: AsyncSession = Depends(get_db)):
             title=payload.title,
             author=payload.author,
         )
-        await db.commit()
         return dto_to_out(dto)
     except InvalidSerialNumber as e:
-        await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     except DuplicateSerialNumber as e:
-        await db.rollback()
         raise HTTPException(status_code=409, detail=str(e))
 
 
@@ -79,12 +77,10 @@ async def delete_book(
         await svc.delete_book(
             serial_number=serial_number, allow_if_borrowed=allow_if_borrowed
         )
-        await db.commit()
+        return
     except BookNotFound as e:
-        await db.rollback()
         raise HTTPException(status_code=404, detail=str(e))
     except BookAlreadyBorrowed as e:
-        await db.rollback()
         raise HTTPException(status_code=409, detail=str(e))
 
 
@@ -97,16 +93,12 @@ async def borrow_book(
         dto = await svc.borrow_book(
             serial_number=serial_number, borrower_card=body.borrower_card
         )
-        await db.commit()
         return dto_to_out(dto)
     except BookNotFound as e:
-        await db.rollback()
         raise HTTPException(status_code=404, detail=str(e))
     except InvalidCardNumber as e:
-        await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     except BookAlreadyBorrowed as e:
-        await db.rollback()
         raise HTTPException(status_code=409, detail=str(e))
 
 
@@ -115,13 +107,10 @@ async def return_book(serial_number: str, db: AsyncSession = Depends(get_db)):
     svc = BookService(db)
     try:
         dto = await svc.return_book(serial_number=serial_number)
-        await db.commit()
         return dto_to_out(dto)
     except BookNotFound as e:
-        await db.rollback()
         raise HTTPException(status_code=404, detail=str(e))
     except BookNotBorrowed as e:
-        await db.rollback()
         raise HTTPException(status_code=409, detail=str(e))
 
 
@@ -141,11 +130,8 @@ async def set_status(
             borrower_card=body.borrower_card,
             when=body.when,
         )
-        await db.commit()
         return dto_to_out(dto)
     except BookNotFound as e:
-        await db.rollback()
         raise HTTPException(status_code=404, detail=str(e))
     except InvalidCardNumber as e:
-        await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))

@@ -174,3 +174,22 @@ async def test_set_status_borrowed_and_free(session: AsyncSession):
     assert dto2.is_borrowed is False
     assert dto2.borrowed_by is None
     assert dto2.borrowed_at is None
+
+
+@pytest.mark.asyncio
+async def test_service_transaction_rollback(session: AsyncSession):
+    svc = BookService(session)
+    await svc.add_book(serial_number="123456", title="T", author="A")
+    await session.commit()
+
+    try:
+        async with session.begin():
+            await svc.borrow_book(serial_number="123456", borrower_card="111111")
+            raise RuntimeError("fail after mutation")
+    except RuntimeError:
+        pass
+
+    book = await svc.get_by_serial("123456")
+    assert book.is_borrowed is False
+    assert book.borrowed_by is None
+    assert book.borrowed_at is None
