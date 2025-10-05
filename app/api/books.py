@@ -1,6 +1,8 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, Body, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db import get_db
 from app.dataclasses.book_dto import BookDTO
 from app.schemas.book import BookCreate, BookOut, BorrowRequest, SetStatusRequest
@@ -13,6 +15,16 @@ from app.exceptions import (
     InvalidCardNumber,
     InvalidSerialNumber,
     UserNotFound,
+)
+from app.api_docs.responses import (
+    R400_INVALID_SERIAL,
+    R400_INVALID_CARD,
+    R400_INVALID_CARD_OR_SERIAL,
+    R404_BOOK,
+    R404_BOOK_OR_USER,
+    R409_DUPLICATE_SERIAL,
+    R409_ALREADY_BORROWED,
+    R409_NOT_BORROWED,
 )
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -30,12 +42,36 @@ def dto_to_out(dto: BookDTO) -> BookOut:
     )
 
 
-@router.get("", response_model=List[BookOut])
+@router.get(
+    "",
+    response_model=List[BookOut],
+    summary="List books",
+    description=(
+        "Returns a paginated list of books. "
+        "Optionally filter by **is_borrowed** and/or **borrower_card**. "
+        "Results are ordered by `created_at` descending."
+    ),
+    responses={
+        400: R400_INVALID_CARD,
+    },
+)
 async def list_books(
-    is_borrowed: Optional[bool] = None,
-    borrower_card: Optional[str] = None,
-    offset: int = 0,
-    limit: int = 100,
+    is_borrowed: Optional[bool] = Query(
+        None,
+        description="Filter by borrowing status",
+        examples={"borrowed": {"value": True}, "available": {"value": False}},  # type: ignore
+    ),
+    borrower_card: Optional[str] = Query(
+        None,
+        description="Borrower card (6 digits) to filter by",
+        examples={"by_user": {"value": "654321"}},  # type: ignore
+    ),
+    offset: int = Query(
+        0, ge=0, le=1_000_000, description="Number of items to skip (pagination)"
+    ),
+    limit: int = Query(
+        100, ge=1, le=500, description="Max number of items to return (1–500)"
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     svc = BookService(db)
@@ -51,8 +87,24 @@ async def list_books(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("", response_model=BookOut, status_code=status.HTTP_201_CREATED)
-async def create_book(payload: BookCreate, db: AsyncSession = Depends(get_db)):
+@router.post(
+    "",
+    response_model=BookOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a book",
+    description="Registers a new book by its **serial_number**, **title**, and **author**.",
+    responses={
+        400: R400_INVALID_SERIAL,
+        409: R409_DUPLICATE_SERIAL,
+    },
+)
+async def create_book(
+    payload: BookCreate = Body(
+        ...,
+        description="Book data to create",
+    ),
+    db: AsyncSession = Depends(get_db),
+):
     svc = BookService(db)
     try:
         dto = await svc.add_book(
@@ -67,10 +119,29 @@ async def create_book(payload: BookCreate, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=409, detail=str(e))
 
 
-@router.delete("/{serial_number}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{serial_number}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a book",
+    description=(
+        "Deletes the book by **serial_number**. "
+        "If the book is currently borrowed, set **allow_if_borrowed=true** to force deletion."
+    ),
+    responses={
+        400: R400_INVALID_SERIAL,
+        404: R404_BOOK,
+        409: R409_ALREADY_BORROWED,
+    },
+)
 async def delete_book(
-    serial_number: str,
-    allow_if_borrowed: bool = False,
+    serial_number: str = Path(
+        ...,
+        description="Book serial (6 digits)",
+        examples={"ex": {"value": "123456"}},  # type: ignore
+    ),
+    allow_if_borrowed: bool = Query(
+        False, description="Allow deletion even if the book is borrowed"
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     svc = BookService(db)
@@ -87,9 +158,27 @@ async def delete_book(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/{serial_number}/borrow", response_model=BookOut)
+@router.post(
+    "/{serial_number}/borrow",
+    response_model=BookOut,
+    summary="Borrow a book",
+    description="Marks the book as borrowed by the user with **borrower_card**.",
+    responses={
+        400: R400_INVALID_CARD_OR_SERIAL,
+        404: R404_BOOK_OR_USER,
+        409: R409_ALREADY_BORROWED,
+    },
+)
 async def borrow_book(
-    serial_number: str, body: BorrowRequest, db: AsyncSession = Depends(get_db)
+    serial_number: str = Path(
+        ...,
+        description="Book serial (6 digits)",
+        examples={"ex": {"value": "123456"}},  # type: ignore
+    ),
+    body: BorrowRequest = Body(
+        ..., description="Borrower card of the user borrowing the book"
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
     svc = BookService(db)
     try:
@@ -109,8 +198,25 @@ async def borrow_book(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/{serial_number}/return", response_model=BookOut)
-async def return_book(serial_number: str, db: AsyncSession = Depends(get_db)):
+@router.post(
+    "/{serial_number}/return",
+    response_model=BookOut,
+    summary="Return a book",
+    description="Marks the book as returned (available).",
+    responses={
+        400: R400_INVALID_SERIAL,
+        404: R404_BOOK,
+        409: R409_NOT_BORROWED,
+    },
+)
+async def return_book(
+    serial_number: str = Path(
+        ...,
+        description="Book serial (6 digits)",
+        examples={"ex": {"value": "123456"}},  # type: ignore
+    ),
+    db: AsyncSession = Depends(get_db),
+):
     svc = BookService(db)
     try:
         dto = await svc.return_book(serial_number=serial_number)
@@ -123,9 +229,30 @@ async def return_book(serial_number: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.patch("/{serial_number}/status", response_model=BookOut)
+@router.patch(
+    "/{serial_number}/status",
+    response_model=BookOut,
+    summary="Set borrow status",
+    description=(
+        "Sets the borrow status directly. When setting `is_borrowed=true`, "
+        "`borrower_card` is required. Optionally supply `when` to override the borrow timestamp."
+    ),
+    responses={
+        400: R400_INVALID_CARD_OR_SERIAL,
+        404: R404_BOOK_OR_USER,
+    },
+)
 async def set_status(
-    serial_number: str, body: SetStatusRequest, db: AsyncSession = Depends(get_db)
+    serial_number: str = Path(
+        ...,
+        description="Book serial (6 digits)",
+        examples={"ex": {"value": "123456"}},  # type: ignore
+    ),
+    body: SetStatusRequest = Body(
+        ...,
+        description="Desired borrow status. For `is_borrowed=true`, include `borrower_card`.",
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
     if body.is_borrowed and not body.borrower_card:
         raise HTTPException(
